@@ -4,7 +4,7 @@ A local web app lobby for the game *L'Incognito*. Players can create or join a r
 
 ## Run locally
 
-1. Open a terminal in `c:\Users\Alex\Desktop\Repo`
+1. Node.js is required
 2. Run `npm install`
 3. Run `npm start`
 4. Open `http://localhost:3000` in your browser
