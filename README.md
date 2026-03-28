@@ -1,6 +1,7 @@
 # L'Incognito
 
-**L'Incognito** est une application web locale pour jouer avec vos amis. Les joueurs peuvent créer ou rejoindre une salle, discuter en temps réel, répondre à des questions et deviner les correspondances anonymes. Connaissez-vous vraiment vos amis ?
+**L'Incognito** est une application web locale mais aussi disponible sur serveur internt pour jouer avec vos amis. Les joueurs peuvent créer ou rejoindre une salle, discuter en temps réel, répondre à des questions et deviner les correspondances anonymes.
+Connaissez-vous vraiment vos amis ?
 
 ## Fonctionnalités
 
@@ -47,7 +48,7 @@ docker build -t lincognito .
 docker run -p 3000:3000 lincognito
 ```
 
-Sur une plateforme externe, tu peux aussi exposer l'URL publique de ton serveur et ouvrir l'app depuis n'importe quel navigateur.
+Sur une plateforme externe, il faut exposer l'URL publique du serveur et ouvrir l'app depuis n'importe quel navigateur.
 
 ## Structure du projet
 
