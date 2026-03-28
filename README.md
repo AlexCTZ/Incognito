@@ -32,6 +32,23 @@ Puis ouvrez :
 http://localhost:3000
 ```
 
+## Déploiement
+
+Le serveur écoute sur le port `3000` par défaut et accepte la variable d'environnement `PORT` :
+
+```bash
+PORT=3000 npm start
+```
+
+Pour le déployer avec Docker :
+
+```bash
+docker build -t lincognito .
+docker run -p 3000:3000 lincognito
+```
+
+Sur une plateforme externe, tu peux aussi exposer l'URL publique de ton serveur et ouvrir l'app depuis n'importe quel navigateur.
+
 ## Structure du projet
 
 - `server.js` : serveur Express + Socket.io, gestion des salles, du jeu et des événements en temps réel
