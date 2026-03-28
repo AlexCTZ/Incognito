@@ -12,8 +12,8 @@ const MAX_PLAYERS = 10;
 const QUESTIONS_PER_GAME = 10;
 const QUESTION_TIMEOUT_MS = 60000;
 const PSEUDOS = [
-  "Le Fantôme", "Monsieur X", "La Mouche", "L'Énigme", "Le Caméléon",
-  "La Plume", "Le Masque", "Le Miroir", "La Brume", "L'Ombre"
+  'Bruno', 'Clément', 'Lucie', 'Marco', 'Julien',
+  'Léa', 'Bastien', 'Justine', 'Pedro', 'Théodore'
 ];
 
 const QUESTIONS_POOL = [
