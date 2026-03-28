@@ -268,18 +268,16 @@ function finalizeQuestion(room) {
 
   clearRoomTimer(room);
 
-  const finishedText =
-    room.answeredIds.size >= room.players.length
-      ? 'Tous les joueurs ont répondu. Passage à la question suivante...'
-      : '60 secondes écoulées. Passage à la question suivante...';
-
-  const feedbackMessage = {
-    sender: 'Système',
-    type: 'system',
-    text: finishedText,
-    timestamp: Date.now(),
-  };
-  broadcastChat(room, feedbackMessage);
+  const timedOut = room.answeredIds.size < room.players.length;
+  if (timedOut) {
+    const feedbackMessage = {
+      sender: 'Système',
+      type: 'system',
+      text: '60 secondes écoulées. Passage à la question suivante...',
+      timestamp: Date.now(),
+    };
+    broadcastChat(room, feedbackMessage);
+  }
   sendNextQuestion(room);
 }
 
