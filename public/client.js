@@ -93,7 +93,6 @@ function renderPlayers(players, gameStarted = false) {
       <li>
         <div>
           <strong>${label || player.pseudo || 'Joueur'}</strong>
-          <small>${player.isHost ? 'Hôte' : 'Joueur'}</small>
         </div>
       </li>
     `;
