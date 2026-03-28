@@ -1,6 +1,6 @@
 # L'Incognito
 
-**L'Incognito** est une application web locale pour jouer à un jeu de lobby social. Les joueurs peuvent créer ou rejoindre une salle, discuter en temps réel, répondre à des questions et deviner les correspondances anonymes.
+**L'Incognito** est une application web locale pour jouer avec vos amis. Les joueurs peuvent créer ou rejoindre une salle, discuter en temps réel, répondre à des questions et deviner les correspondances anonymes. Connaissez-vous vraiment vos amis ?
 
 ## Fonctionnalités
 
