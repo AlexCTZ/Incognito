@@ -42,6 +42,7 @@ function showLobby(room, pseudo) {
   renderPlayers(room.players);
   updateHostControls(room);
   updateGameUI(room.game);
+  renderChatHistory(room.chat);
   joinPanel.classList.add('hidden');
   lobbyPanel.classList.remove('hidden');
   setStatus('Vous êtes dans la salle. Attendez d’autres joueurs ou discutez dans le chat.');
@@ -60,10 +61,14 @@ function renderPlayers(players) {
     .join('');
 }
 
-function formatChatMessage({ sender, text, timestamp }) {
+function formatChatMessage({ sender, text, timestamp, type }) {
   const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const classes = ['chat-message'];
+  if (type) {
+    classes.push(`chat-message--${type}`);
+  }
   return `
-    <div class="chat-message">
+    <div class="${classes.join(' ')}">
       <strong>${sender}</strong>
       <small>${time}</small>
       <div>${text}</div>
@@ -77,6 +82,12 @@ function appendChat(message) {
   if (atBottom) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
+}
+
+function renderChatHistory(chat) {
+  chatMessages.innerHTML = '';
+  chat.forEach(appendChat);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function updateHostControls(room) {

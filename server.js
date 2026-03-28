@@ -139,6 +139,7 @@ function endGame(room) {
 
   const endMessage = {
     sender: 'Système',
+    type: 'system',
     text: 'La partie est terminée. Merci pour la partie !',
     timestamp: Date.now(),
   };
@@ -162,6 +163,7 @@ function sendNextQuestion(room) {
 
   const questionMessage = {
     sender: 'Système',
+    type: 'question',
     text: `Question ${room.currentQuestionIndex + 1} : ${room.currentQuestionText}`,
     timestamp: Date.now(),
   };
@@ -183,6 +185,7 @@ function finalizeQuestion(room) {
 
   const feedbackMessage = {
     sender: 'Système',
+    type: 'system',
     text: finishedText,
     timestamp: Date.now(),
   };
@@ -203,6 +206,7 @@ function startGame(room) {
 
   const startMessage = {
     sender: 'Système',
+    type: 'system',
     text: 'La partie commence ! Répondez à la première question dans le chat.',
     timestamp: Date.now(),
   };
@@ -344,6 +348,7 @@ io.on('connection', (socket) => {
         const [player] = room.players.splice(index, 1);
         const leaveMessage = {
           sender: 'Système',
+          type: 'system',
           text: `${player.pseudo} a quitté la salle.`,
           timestamp: Date.now(),
         };
