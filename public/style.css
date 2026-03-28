@@ -192,6 +192,125 @@ button:hover {
   font-size: 0.95rem;
 }
 
+#guess-panel,
+#results-panel {
+  padding: 18px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 18px;
+}
+
+.guess-status {
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.guess-row {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.guess-row label {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+#guess-form select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+#guess-form select:focus {
+  outline: none;
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0 4px rgba(98, 112, 255, 0.14);
+}
+
+#guess-form select option {
+  background: #15151d;
+  color: var(--text);
+}
+
+#submit-guess-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  padding: 14px 18px;
+  border-radius: 16px;
+}
+
+#submit-guess-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#reveal-list,
+#final-scoreboard {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.reveal-card {
+  padding: 18px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  display: grid;
+  gap: 8px;
+}
+
+.reveal-card strong {
+  color: var(--primary-strong);
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+}
+
+.result-item strong {
+  display: block;
+}
+
+#submit-guess-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+#results-list {
+  display: grid;
+  gap: 10px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+}
+
+.result-item strong {
+  display: block;
+}
+
 .secondary {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);

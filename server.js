@@ -74,6 +74,7 @@ function createRoom(hostName) {
     hostId: null,
     players,
     chat: [],
+    phase: 'lobby',
     gameStarted: false,
     questions: [],
     currentQuestionIndex: -1,
@@ -81,23 +82,54 @@ function createRoom(hostName) {
     questionStartTime: null,
     answeredIds: new Set(),
     timer: null,
+    guessNames: [],
+    guessSubmissions: new Map(),
+    scores: new Map(),
+    results: null,
   });
   return rooms.get(code);
 }
 
 function getGameState(room, socketId = null) {
-  return {
+  const baseState = {
     started: room.gameStarted,
+    phase: room.phase,
     questionNumber: room.currentQuestionIndex >= 0 ? room.currentQuestionIndex + 1 : 0,
     totalQuestions: QUESTIONS_PER_GAME,
     currentQuestionText: room.currentQuestionText,
     answeredCount: room.answeredIds.size,
     requiredCount: room.players.length,
-    hasAnswered: socketId ? room.answeredIds.has(socketId) : false,
     timeLeft: room.questionStartTime
       ? Math.max(0, Math.ceil((room.questionStartTime + QUESTION_TIMEOUT_MS - Date.now()) / 1000))
       : null,
   };
+
+  if (room.phase === 'questions') {
+    return {
+      ...baseState,
+      hasAnswered: socketId ? room.answeredIds.has(socketId) : false,
+    };
+  }
+
+  if (room.phase === 'guess') {
+    return {
+      ...baseState,
+      pseudos: room.players.map((p) => p.pseudo),
+      guessNames: room.guessNames,
+      guessSubmissionCount: room.guessSubmissions.size,
+      guessRequiredCount: room.players.length,
+      hasSubmitted: socketId ? room.guessSubmissions.has(socketId) : false,
+    };
+  }
+
+  if (room.phase === 'results') {
+    return {
+      ...baseState,
+      results: room.results || [],
+    };
+  }
+
+  return baseState;
 }
 
 function getRoomState(room) {
@@ -162,12 +194,56 @@ function endGame(room) {
   sendRoomUpdate(room);
 }
 
+function beginGuessPhase(room) {
+  clearRoomTimer(room);
+  room.phase = 'guess';
+  room.currentQuestionText = null;
+  room.currentQuestionIndex = room.questions.length;
+  room.questionStartTime = null;
+  room.answeredIds = new Set();
+  room.guessNames = shuffleArray(room.players.map((p) => p.name));
+  room.guessSubmissions = new Map();
+  room.chat = [];
+
+  sendRoomUpdate(room);
+  sendGameUpdate(room);
+}
+
+function computeResults(room) {
+  const actualByPseudo = Object.fromEntries(room.players.map((p) => [p.pseudo, p.name]));
+  const results = room.players.map((player) => {
+    const guess = room.guessSubmissions.get(player.id) || {};
+    let score = 0;
+    for (const [pseudo, name] of Object.entries(guess)) {
+      if (actualByPseudo[pseudo] === name) {
+        score += 1;
+      }
+    }
+    room.scores.set(player.id, score);
+    return {
+      id: player.id,
+      pseudo: player.pseudo,
+      name: player.name,
+      score,
+    };
+  });
+  results.sort((a, b) => b.score - a.score);
+  room.results = results;
+  room.phase = 'results';
+  room.chat = [];
+  room.currentQuestionText = null;
+  room.questionStartTime = null;
+
+  sendRoomUpdate(room);
+  sendGameUpdate(room);
+}
+
 function sendNextQuestion(room) {
   clearRoomTimer(room);
   room.currentQuestionIndex += 1;
 
   if (room.currentQuestionIndex >= room.questions.length) {
-    return endGame(room);
+    return beginGuessPhase(room);
   }
 
   room.currentQuestionText = room.questions[room.currentQuestionIndex];
@@ -186,7 +262,7 @@ function sendNextQuestion(room) {
 }
 
 function finalizeQuestion(room) {
-  if (!room.gameStarted || room.questionStartTime === null) {
+  if (room.phase !== 'questions' || room.questionStartTime === null) {
     return;
   }
 
@@ -215,17 +291,21 @@ function assignPseudos(room) {
 }
 
 function startGame(room) {
-  if (room.gameStarted) return;
+  if (room.phase !== 'lobby') return;
   if (room.players.length < 2) return;
 
   assignPseudos(room);
-  room.questions = selectQuestions();
+  room.phase = 'questions';
   room.gameStarted = true;
+  room.questions = selectQuestions();
   room.currentQuestionIndex = -1;
   room.currentQuestionText = null;
   room.questionStartTime = null;
   room.answeredIds = new Set();
-
+  room.guessNames = [];
+  room.guessSubmissions = new Map();
+  room.scores = new Map(room.players.map((player) => [player.id, 0]));
+  room.results = null;
   room.chat = [];
 
   const startMessage = {
@@ -342,7 +422,11 @@ io.on('connection', (socket) => {
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
 
-    if (room.gameStarted && room.currentQuestionText && room.answeredIds.has(player.id)) {
+    if (room.phase !== 'lobby' && room.phase !== 'questions') {
+      return socket.emit('error-message', 'Le chat n’est pas disponible dans cette phase.');
+    }
+
+    if (room.phase === 'questions' && room.currentQuestionText && room.answeredIds.has(player.id)) {
       return socket.emit('error-message', 'Vous avez déjà répondu à cette question.');
     }
 
@@ -358,7 +442,55 @@ io.on('connection', (socket) => {
       markAnswer(room, player);
     }
   });
+  socket.on('submit-guess', ({ roomCode, guess }) => {
+    const code = roomCode?.toUpperCase?.()?.trim();
+    const room = rooms.get(code);
+    if (!room) return;
 
+    if (room.phase !== 'guess') {
+      return socket.emit('error-message', 'Vous ne pouvez pas envoyer de réponse maintenant.');
+    }
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    if (room.guessSubmissions.has(player.id)) {
+      return socket.emit('error-message', 'Vous avez déjà soumis votre réponse.');
+    }
+
+    const validPseudos = new Set(room.players.map((p) => p.pseudo));
+    const validNames = new Set(room.players.map((p) => p.name));
+    const selectedNames = new Set();
+
+    if (!guess || typeof guess !== 'object') {
+      return socket.emit('error-message', 'Réponse invalide.');
+    }
+
+    for (const pseudo of Object.keys(guess)) {
+      if (!validPseudos.has(pseudo)) {
+        return socket.emit('error-message', 'Pseudo invalide dans la soumission.');
+      }
+      const name = guess[pseudo];
+      if (!validNames.has(name)) {
+        return socket.emit('error-message', 'Nom invalide dans la soumission.');
+      }
+      if (selectedNames.has(name)) {
+        return socket.emit('error-message', 'Vous devez utiliser chaque nom une seule fois.');
+      }
+      selectedNames.add(name);
+    }
+
+    if (selectedNames.size !== room.players.length) {
+      return socket.emit('error-message', 'Vous devez relier chaque pseudo à un nom.');
+    }
+
+    room.guessSubmissions.set(player.id, guess);
+    sendGameUpdate(room);
+
+    if (room.guessSubmissions.size >= room.players.length) {
+      computeResults(room);
+    }
+  });
   socket.on('disconnect', () => {
     for (const room of rooms.values()) {
       const index = room.players.findIndex((p) => p.id === socket.id);

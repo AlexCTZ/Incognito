@@ -68,7 +68,21 @@
                 <span id="answered-count">0/0 réponses reçues</span>
               </div>
             </div>
-            <h3>Chat de la salle</h3>
+            <div id="guess-panel" class="hidden">
+              <h3>Phase de déduction</h3>
+              <p id="guess-status" class="guess-status">Reliez chaque pseudo à un vrai nom.</p>
+              <form id="guess-form"></form>
+              <button id="submit-guess-btn" type="button">Envoyer mes réponses</button>
+            </div>
+            <div id="results-panel" class="hidden">
+              <h3>Résultats finaux</h3>
+              <div id="reveal-list"></div>
+              <div id="final-scoreboard" class="hidden">
+                <h4>Classement final</h4>
+                <div id="results-list"></div>
+              </div>
+            </div>
+            <h3 id="chat-heading">Chat de la salle</h3>
             <div id="chat-messages" class="chat-messages"></div>
             <form id="chat-form">
               <input id="chat-input" type="text" placeholder="Envoyez un message..." maxlength="200" autocomplete="off" />
