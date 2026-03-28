@@ -25,6 +25,10 @@ const resultsPanel = document.getElementById('results-panel');
 const revealList = document.getElementById('reveal-list');
 const finalScoreboard = document.getElementById('final-scoreboard');
 const resultsList = document.getElementById('results-list');
+const showHistoryBtn = document.getElementById('show-history-btn');
+const historyModal = document.getElementById('history-modal');
+const historyMessages = document.getElementById('history-messages');
+const closeHistoryBtn = document.getElementById('close-history-btn');
 const startGameBtn = document.getElementById('start-game-btn');
 const questionCard = document.getElementById('question-card');
 const questionNumberLabel = document.getElementById('question-number');
@@ -48,6 +52,7 @@ function setStatus(message, isError = false) {
 function showLobby(room, playerId, initialGameState = null) {
   currentRoomCode = room.code;
   localPlayerId = playerId;
+  currentRoomChat = room.chat;
   roomCodeLabel.textContent = room.code;
   const me = room.players.find((player) => player.id === playerId);
   const displayName = (room.game?.started ? me?.pseudo : me?.name) || 'Vous';
@@ -119,10 +124,29 @@ function appendChat(message) {
   }
 }
 
+let currentRoomChat = [];
+
 function renderChatHistory(chat) {
   chatMessages.innerHTML = '';
   chat.forEach(appendChat);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function renderHistoryMessages(chat) {
+  historyMessages.innerHTML = '';
+  chat.forEach((message) => {
+    historyMessages.insertAdjacentHTML('beforeend', formatChatMessage(message));
+  });
+  historyMessages.scrollTop = historyMessages.scrollHeight;
+}
+
+function openHistoryModal() {
+  renderHistoryMessages(currentRoomChat);
+  historyModal.classList.remove('hidden');
+}
+
+function closeHistoryModal() {
+  historyModal.classList.add('hidden');
 }
 
 function updateHostControls(room) {
@@ -269,6 +293,7 @@ function updateGameUI(game) {
   chatHeading.classList.toggle('hidden', showingGuess || showingResults);
   chatMessages.classList.toggle('hidden', showingGuess || showingResults);
   chatForm.classList.toggle('hidden', showingGuess || showingResults);
+  showHistoryBtn.classList.toggle('hidden', !(showingGuess || showingResults));
 
   if (!game || !game.started) {
     gameStatusLabel.textContent = 'La partie n’a pas encore commencé.';
@@ -349,15 +374,20 @@ submitGuessBtn.addEventListener('click', () => {
   guessForm.dispatchEvent(new Event('submit', { cancelable: true }));
 });
 
+showHistoryBtn.addEventListener('click', openHistoryModal);
+closeHistoryBtn.addEventListener('click', closeHistoryModal);
+historyModal.addEventListener('click', (event) => {
+  if (event.target === historyModal) {
+    closeHistoryModal();
+  }
+});
+
 socket.on('error-message', (message) => {
   setStatus(message, true);
 });
 
-socket.on('joined-room', ({ room, playerId, game }) => {
-  showLobby(room, playerId, game);
-});
-
 socket.on('room-updated', (room) => {
+  currentRoomChat = room.chat;
   renderPlayers(room.players, room.game?.started);
   updateHostControls(room);
   updateGameUI(room.game);
@@ -365,11 +395,20 @@ socket.on('room-updated', (room) => {
   renderChatHistory(room.chat);
 });
 
+socket.on('joined-room', ({ room, playerId, game }) => {
+  currentRoomChat = room.chat;
+  showLobby(room, playerId, game);
+});
+
 socket.on('game-updated', (game) => {
   updateGameUI(game);
 });
 
 socket.on('chat-message', (message) => {
+  currentRoomChat.push(message);
+  if (!historyModal.classList.contains('hidden')) {
+    renderHistoryMessages(currentRoomChat);
+  }
   appendChat(message);
 });
 

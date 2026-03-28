@@ -203,7 +203,6 @@ function beginGuessPhase(room) {
   room.answeredIds = new Set();
   room.guessNames = shuffleArray(room.players.map((p) => p.name));
   room.guessSubmissions = new Map();
-  room.chat = [];
 
   sendRoomUpdate(room);
   sendGameUpdate(room);
@@ -230,7 +229,6 @@ function computeResults(room) {
   results.sort((a, b) => b.score - a.score);
   room.results = results;
   room.phase = 'results';
-  room.chat = [];
   room.currentQuestionText = null;
   room.questionStartTime = null;
 

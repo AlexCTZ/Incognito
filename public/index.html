@@ -58,6 +58,7 @@
               <button id="start-game-btn" class="secondary hidden">Démarrer la partie</button>
             </div>
             <div id="game-status" class="game-status">La partie n’a pas encore commencé.</div>
+            <button id="show-history-btn" class="secondary hidden">Voir l'historique des messages</button>
             <div class="question-card hidden" id="question-card">
               <div class="question-row">
                 <span id="question-number">0/10</span>
@@ -92,6 +93,16 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="history-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Historique des messages</h3>
+        <button id="close-history-btn" class="secondary">Fermer</button>
+      </div>
+      <div id="history-messages" class="chat-messages"></div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
