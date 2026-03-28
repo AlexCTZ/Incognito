@@ -70,8 +70,18 @@ function updateLocalLabels(room) {
   playerRoleLabel.textContent = me?.isHost ? 'Hôte' : 'Joueur';
 }
 
+function shufflePlayers(players) {
+  const array = [...players];
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 function renderPlayers(players, gameStarted = false) {
-  playerList.innerHTML = players
+  const displayPlayers = gameStarted ? shufflePlayers(players) : players;
+  playerList.innerHTML = displayPlayers
     .map((player) => {
       const label = gameStarted ? player.pseudo : player.name;
       return `
