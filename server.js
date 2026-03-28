@@ -1,0 +1,374 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+const PORT = process.env.PORT || 3000;
+const MAX_PLAYERS = 10;
+const QUESTIONS_PER_GAME = 10;
+const QUESTION_TIMEOUT_MS = 60000;
+const PSEUDOS = [
+  "Le Fantôme", "Monsieur X", "La Mouche", "L'Énigme", "Le Caméléon",
+  "La Plume", "Le Masque", "Le Miroir", "La Brume", "L'Ombre"
+];
+
+const QUESTIONS_POOL = [
+  'Quel est ton plat préféré ?',
+  'Quelle est la destination de voyage de tes rêves ?',
+  'Quelle est la dernière série que tu as regardée ?',
+  'Quel est ton animal favori ?',
+  'Quelle est ta couleur préférée ?',
+  'Quel métier voulais-tu faire enfant ?',
+  'Quel est ton talent secret ?',
+  'Quel super-pouvoir aimerais-tu avoir ?',
+  'Quel est le livre qui t’a marqué ?',
+  'Quel est ton souvenir d’enfance préféré ?',
+  'Quel est ton dessert favori ?',
+  'Quelle invention aurais-tu aimé créer ?',
+  'Quel est ton sport préféré ?',
+  'Quel est ton héros de fiction préféré ?',
+  'Quelle chanson te fait toujours danser ?',
+  'Quel est le meilleur conseil que tu aies reçu ?',
+  'Quel est ton loisir favori ?',
+  'Quel pays aimerais-tu visiter ?',
+  'Quel est ton film préféré ?',
+  'Quelle est ta saison préférée ?'
+];
+
+const rooms = new Map();
+
+function randomCode() {
+  const letters = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  return Array.from({ length: 4 }, () => letters[Math.floor(Math.random() * letters.length)]).join('');
+}
+
+function shuffleArray(items) {
+  const array = [...items];
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function selectQuestions() {
+  return shuffleArray(QUESTIONS_POOL).slice(0, QUESTIONS_PER_GAME);
+}
+
+function createRoom(hostName) {
+  const code = (() => {
+    let id;
+    do {
+      id = randomCode();
+    } while (rooms.has(id));
+    return id;
+  })();
+
+  const players = [];
+  rooms.set(code, {
+    code,
+    hostId: null,
+    players,
+    chat: [],
+    gameStarted: false,
+    questions: [],
+    currentQuestionIndex: -1,
+    currentQuestionText: null,
+    questionStartTime: null,
+    answeredIds: new Set(),
+    timer: null,
+  });
+  return rooms.get(code);
+}
+
+function getGameState(room) {
+  return {
+    started: room.gameStarted,
+    questionNumber: room.currentQuestionIndex >= 0 ? room.currentQuestionIndex + 1 : 0,
+    totalQuestions: QUESTIONS_PER_GAME,
+    currentQuestionText: room.currentQuestionText,
+    answeredCount: room.answeredIds.size,
+    requiredCount: room.players.length,
+    timeLeft: room.questionStartTime
+      ? Math.max(0, Math.ceil((room.questionStartTime + QUESTION_TIMEOUT_MS - Date.now()) / 1000))
+      : null,
+  };
+}
+
+function getRoomState(room) {
+  return {
+    code: room.code,
+    players: room.players.map((p) => ({ id: p.id, pseudo: p.pseudo, isHost: p.isHost })),
+    chat: room.chat,
+    game: getGameState(room),
+  };
+}
+
+function clearRoomTimer(room) {
+  if (room.timer) {
+    clearTimeout(room.timer);
+    room.timer = null;
+  }
+}
+
+function broadcastChat(room, message) {
+  room.chat.push(message);
+  io.to(room.code).emit('chat-message', message);
+}
+
+function sendRoomUpdate(room) {
+  io.to(room.code).emit('room-updated', getRoomState(room));
+}
+
+function sendGameUpdate(room) {
+  io.to(room.code).emit('game-updated', getGameState(room));
+}
+
+function endGame(room) {
+  clearRoomTimer(room);
+  room.gameStarted = false;
+  room.currentQuestionText = null;
+  room.currentQuestionIndex = -1;
+  room.questionStartTime = null;
+  room.questions = [];
+  room.answeredIds = new Set();
+
+  const endMessage = {
+    sender: 'Système',
+    text: 'La partie est terminée. Merci pour la partie !',
+    timestamp: Date.now(),
+  };
+  broadcastChat(room, endMessage);
+  sendGameUpdate(room);
+  sendRoomUpdate(room);
+}
+
+function sendNextQuestion(room) {
+  clearRoomTimer(room);
+  room.currentQuestionIndex += 1;
+
+  if (room.currentQuestionIndex >= room.questions.length) {
+    return endGame(room);
+  }
+
+  room.currentQuestionText = room.questions[room.currentQuestionIndex];
+  room.answeredIds = new Set();
+  room.questionStartTime = Date.now();
+  room.timer = setTimeout(() => finalizeQuestion(room), QUESTION_TIMEOUT_MS);
+
+  const questionMessage = {
+    sender: 'Système',
+    text: `Question ${room.currentQuestionIndex + 1} : ${room.currentQuestionText}`,
+    timestamp: Date.now(),
+  };
+  broadcastChat(room, questionMessage);
+  sendGameUpdate(room);
+}
+
+function finalizeQuestion(room) {
+  if (!room.gameStarted || room.questionStartTime === null) {
+    return;
+  }
+
+  clearRoomTimer(room);
+
+  const finishedText =
+    room.answeredIds.size >= room.players.length
+      ? 'Tous les joueurs ont répondu. Passage à la question suivante...'
+      : '60 secondes écoulées. Passage à la question suivante...';
+
+  const feedbackMessage = {
+    sender: 'Système',
+    text: finishedText,
+    timestamp: Date.now(),
+  };
+  broadcastChat(room, feedbackMessage);
+  sendNextQuestion(room);
+}
+
+function startGame(room) {
+  if (room.gameStarted) return;
+  if (room.players.length < 2) return;
+
+  room.questions = selectQuestions();
+  room.gameStarted = true;
+  room.currentQuestionIndex = -1;
+  room.currentQuestionText = null;
+  room.questionStartTime = null;
+  room.answeredIds = new Set();
+
+  const startMessage = {
+    sender: 'Système',
+    text: 'La partie commence ! Répondez à la première question dans le chat.',
+    timestamp: Date.now(),
+  };
+  broadcastChat(room, startMessage);
+  sendRoomUpdate(room);
+  sendNextQuestion(room);
+}
+
+function markAnswer(room, player) {
+  if (!room.gameStarted || !room.currentQuestionText) {
+    return;
+  }
+
+  if (room.answeredIds.has(player.id)) {
+    return;
+  }
+
+  room.answeredIds.add(player.id);
+  sendGameUpdate(room);
+
+  if (room.answeredIds.size >= room.players.length) {
+    finalizeQuestion(room);
+  }
+}
+
+io.on('connection', (socket) => {
+  socket.on('create-room', ({ name }) => {
+    if (!name || typeof name !== 'string') {
+      return socket.emit('error-message', 'Name is required to create a room.');
+    }
+
+    const room = createRoom(name.trim());
+    const pseudo = PSEUDOS[0];
+    const player = {
+      id: socket.id,
+      name: name.trim(),
+      pseudo,
+      isHost: true,
+    };
+    room.hostId = socket.id;
+    room.players.push(player);
+
+    socket.join(room.code);
+    socket.emit('room-created', getRoomState(room));
+    socket.emit('joined-room', { room: getRoomState(room), pseudo });
+  });
+
+  socket.on('join-room', ({ roomCode, name }) => {
+    const code = roomCode?.toUpperCase?.()?.trim();
+    const room = rooms.get(code);
+
+    if (!room) {
+      return socket.emit('error-message', 'Room not found.');
+    }
+
+    if (room.gameStarted) {
+      return socket.emit('error-message', 'La partie a déjà commencé.');
+    }
+
+    if (room.players.length >= MAX_PLAYERS) {
+      return socket.emit('error-message', 'Room is full.');
+    }
+
+    if (!name || typeof name !== 'string') {
+      return socket.emit('error-message', 'Name is required to join a room.');
+    }
+
+    const takenPseudos = new Set(room.players.map((p) => p.pseudo));
+    const pseudo = PSEUDOS.find((candidate) => !takenPseudos.has(candidate)) || `Joueur ${room.players.length + 1}`;
+    const player = {
+      id: socket.id,
+      name: name.trim(),
+      pseudo,
+      isHost: false,
+    };
+
+    room.players.push(player);
+    socket.join(room.code);
+
+    const joinMessage = {
+      sender: 'Système',
+      text: `${pseudo} a rejoint la salle.`,
+      timestamp: Date.now(),
+    };
+    room.chat.push(joinMessage);
+    sendRoomUpdate(room);
+    broadcastChat(room, joinMessage);
+    socket.emit('joined-room', { room: getRoomState(room), pseudo });
+  });
+
+  socket.on('start-game', ({ roomCode }) => {
+    const code = roomCode?.toUpperCase?.()?.trim();
+    const room = rooms.get(code);
+
+    if (!room) {
+      return socket.emit('error-message', 'Room not found.');
+    }
+
+    if (socket.id !== room.hostId) {
+      return socket.emit('error-message', 'Only the host can start the game.');
+    }
+
+    if (room.gameStarted) {
+      return socket.emit('error-message', 'The game has already started.');
+    }
+
+    if (room.players.length < 2) {
+      return socket.emit('error-message', 'At least two players are required to start.');
+    }
+
+    startGame(room);
+  });
+
+  socket.on('send-chat', ({ roomCode, text }) => {
+    const code = roomCode?.toUpperCase?.()?.trim();
+    const room = rooms.get(code);
+    if (!room) return;
+
+    const player = room.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    const message = {
+      sender: player.pseudo,
+      text: text.trim().slice(0, 250),
+      timestamp: Date.now(),
+    };
+    room.chat.push(message);
+    io.to(room.code).emit('chat-message', message);
+
+    if (room.gameStarted && room.currentQuestionText) {
+      markAnswer(room, player);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    for (const room of rooms.values()) {
+      const index = room.players.findIndex((p) => p.id === socket.id);
+      if (index !== -1) {
+        const [player] = room.players.splice(index, 1);
+        const leaveMessage = {
+          sender: 'Système',
+          text: `${player.pseudo} a quitté la salle.`,
+          timestamp: Date.now(),
+        };
+        room.chat.push(leaveMessage);
+        sendRoomUpdate(room);
+        broadcastChat(room, leaveMessage);
+        if (room.hostId === socket.id && room.players.length > 0) {
+          room.hostId = room.players[0].id;
+          room.players[0].isHost = true;
+          sendRoomUpdate(room);
+        }
+        if (room.gameStarted && room.currentQuestionText && room.answeredIds.size >= room.players.length) {
+          finalizeQuestion(room);
+        }
+        if (room.players.length === 0) {
+          rooms.delete(room.code);
+        }
+        break;
+      }
+    }
+  });
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+server.listen(PORT, () => {
+  console.log(`L'Incognito lobby server running on http://localhost:${PORT}`);
+});

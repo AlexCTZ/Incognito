@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>L'Incognito - Lobby</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <h1>L'Incognito</h1>
+      <p>Créez une partie, invitez vos amis et échangez avant de commencer.</p>
+    </header>
+
+    <main>
+      <section class="panel" id="join-panel">
+        <h2>Créer ou rejoindre une salle</h2>
+        <div class="form-row">
+          <label for="player-name">Votre prénom</label>
+          <input id="player-name" type="text" placeholder="Ex : Alex" maxlength="20" />
+        </div>
+        <div class="button-row">
+          <button id="create-room-btn">Créer une salle</button>
+          <button id="show-join-btn">Rejoindre une salle</button>
+        </div>
+        <div id="join-form" class="hidden">
+          <div class="form-row">
+            <label for="room-code">Code de la salle</label>
+            <input id="room-code" type="text" placeholder="ABCD" maxlength="4" />
+          </div>
+          <button id="join-room-btn">Rejoindre</button>
+        </div>
+        <div id="status-message" class="status"></div>
+      </section>
+
+      <section class="panel hidden" id="lobby-panel">
+        <div class="lobby-header">
+          <div>
+            <h2>Salon</h2>
+            <p>Code de salle : <strong id="room-code-label">----</strong></p>
+            <p>Votre pseudo : <strong id="player-pseudo-label">?</strong></p>
+            <p>Rôle : <strong id="player-role-label">?</strong></p>
+          </div>
+          <div class="host-note">
+            <p>Le créateur de la salle est l'hôte.</p>
+          </div>
+        </div>
+
+        <div class="lobby-grid">
+          <div class="players-panel">
+            <h3>Joueurs dans la salle</h3>
+            <ul id="player-list"></ul>
+          </div>
+          <div class="chat-panel">
+            <div class="game-header">
+              <h3>Questions & chat</h3>
+              <button id="start-game-btn" class="secondary hidden">Démarrer la partie</button>
+            </div>
+            <div id="game-status" class="game-status">La partie n’a pas encore commencé.</div>
+            <div class="question-card hidden" id="question-card">
+              <div class="question-row">
+                <span id="question-number">0/10</span>
+                <span id="question-timer">60s</span>
+              </div>
+              <p id="question-text">La question apparaîtra ici.</p>
+              <div class="question-meta">
+                <span id="answered-count">0/0 réponses reçues</span>
+              </div>
+            </div>
+            <h3>Chat de la salle</h3>
+            <div id="chat-messages" class="chat-messages"></div>
+            <form id="chat-form">
+              <input id="chat-input" type="text" placeholder="Envoyez un message..." maxlength="200" autocomplete="off" />
+              <button type="submit">Envoyer</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

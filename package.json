@@ -1,0 +1,14 @@
+{
+  "name": "lincognito-lobby",
+  "version": "0.1.0",
+  "private": true,
+  "description": "L'Incognito lobby web app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
