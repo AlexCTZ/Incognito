@@ -25,39 +25,51 @@ const answeredCountLabel = document.getElementById('answered-count');
 const gameStatusLabel = document.getElementById('game-status');
 
 let currentRoomCode = null;
-let localPseudo = null;
+let localPlayerId = null;
 
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
   statusMessage.style.color = isError ? '#f67d7d' : '#c8d0ff';
 }
 
-function showLobby(room, pseudo, initialGameState = null) {
+function showLobby(room, playerId, initialGameState = null) {
   currentRoomCode = room.code;
-  localPseudo = pseudo;
+  localPlayerId = playerId;
   roomCodeLabel.textContent = room.code;
-  playerPseudoLabel.textContent = pseudo;
-  const me = room.players.find((player) => player.pseudo === pseudo);
+  const me = room.players.find((player) => player.id === playerId);
+  const displayName = (room.game?.started ? me?.pseudo : me?.name) || 'Vous';
+  playerPseudoLabel.textContent = displayName;
   playerRoleLabel.textContent = me?.isHost ? 'Hôte' : 'Joueur';
-  renderPlayers(room.players);
+  renderPlayers(room.players, room.game?.started);
   updateHostControls(room);
   updateGameUI(initialGameState || room.game);
+  updateLocalLabels(room);
   renderChatHistory(room.chat);
   joinPanel.classList.add('hidden');
   lobbyPanel.classList.remove('hidden');
   setStatus('Vous êtes dans la salle. Attendez d’autres joueurs ou discutez dans le chat.');
 }
 
-function renderPlayers(players) {
+function updateLocalLabels(room) {
+  const me = room.players.find((player) => player.id === localPlayerId);
+  if (!me) return;
+  playerPseudoLabel.textContent = (room.game?.started ? me.pseudo : me.name) || 'Vous';
+  playerRoleLabel.textContent = me?.isHost ? 'Hôte' : 'Joueur';
+}
+
+function renderPlayers(players, gameStarted = false) {
   playerList.innerHTML = players
-    .map((player) => `
+    .map((player) => {
+      const label = gameStarted ? player.pseudo : player.name;
+      return `
       <li>
         <div>
-          <strong>${player.pseudo}</strong>
+          <strong>${label || player.pseudo || 'Joueur'}</strong>
           <small>${player.isHost ? 'Hôte' : 'Joueur'}</small>
         </div>
       </li>
-    `)
+    `;
+    })
     .join('');
 }
 
@@ -91,7 +103,7 @@ function renderChatHistory(chat) {
 }
 
 function updateHostControls(room) {
-  const me = room.players.find((player) => player.pseudo === localPseudo);
+  const me = room.players.find((player) => player.id === localPlayerId);
   if (me?.isHost && !room.game.started) {
     startGameBtn.classList.remove('hidden');
   } else {
@@ -151,14 +163,16 @@ socket.on('error-message', (message) => {
   setStatus(message, true);
 });
 
-socket.on('joined-room', ({ room, pseudo, game }) => {
-  showLobby(room, pseudo, game);
+socket.on('joined-room', ({ room, playerId, game }) => {
+  showLobby(room, playerId, game);
 });
 
 socket.on('room-updated', (room) => {
-  renderPlayers(room.players);
+  renderPlayers(room.players, room.game?.started);
   updateHostControls(room);
   updateGameUI(room.game);
+  updateLocalLabels(room);
+  renderChatHistory(room.chat);
 });
 
 socket.on('game-updated', (game) => {
@@ -170,5 +184,5 @@ socket.on('chat-message', (message) => {
 });
 
 socket.on('room-created', (roomState) => {
-  renderPlayers(roomState.players);
+  renderPlayers(roomState.players, roomState.game?.started);
 });

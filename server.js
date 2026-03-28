@@ -103,7 +103,17 @@ function getGameState(room, socketId = null) {
 function getRoomState(room) {
   return {
     code: room.code,
-    players: room.players.map((p) => ({ id: p.id, pseudo: p.pseudo, isHost: p.isHost })),
+    players: room.players.map((p) => {
+      const playerState = {
+        id: p.id,
+        pseudo: p.pseudo,
+        isHost: p.isHost,
+      };
+      if (!room.gameStarted) {
+        playerState.name = p.name;
+      }
+      return playerState;
+    }),
     chat: room.chat,
     game: getGameState(room),
   };
@@ -197,16 +207,26 @@ function finalizeQuestion(room) {
   sendNextQuestion(room);
 }
 
+function assignPseudos(room) {
+  const shuffled = shuffleArray(PSEUDOS).slice(0, room.players.length);
+  room.players.forEach((player, index) => {
+    player.pseudo = shuffled[index];
+  });
+}
+
 function startGame(room) {
   if (room.gameStarted) return;
   if (room.players.length < 2) return;
 
+  assignPseudos(room);
   room.questions = selectQuestions();
   room.gameStarted = true;
   room.currentQuestionIndex = -1;
   room.currentQuestionText = null;
   room.questionStartTime = null;
   room.answeredIds = new Set();
+
+  room.chat = [];
 
   const startMessage = {
     sender: 'Système',
@@ -243,11 +263,10 @@ io.on('connection', (socket) => {
     }
 
     const room = createRoom(name.trim());
-    const pseudo = PSEUDOS[0];
     const player = {
       id: socket.id,
       name: name.trim(),
-      pseudo,
+      pseudo: null,
       isHost: true,
     };
     room.hostId = socket.id;
@@ -255,7 +274,7 @@ io.on('connection', (socket) => {
 
     socket.join(room.code);
     socket.emit('room-created', getRoomState(room));
-    socket.emit('joined-room', { room: getRoomState(room), pseudo });
+    socket.emit('joined-room', { room: getRoomState(room), playerId: socket.id });
   });
 
   socket.on('join-room', ({ roomCode, name }) => {
@@ -278,27 +297,18 @@ io.on('connection', (socket) => {
       return socket.emit('error-message', 'Name is required to join a room.');
     }
 
-    const takenPseudos = new Set(room.players.map((p) => p.pseudo));
-    const pseudo = PSEUDOS.find((candidate) => !takenPseudos.has(candidate)) || `Joueur ${room.players.length + 1}`;
     const player = {
       id: socket.id,
       name: name.trim(),
-      pseudo,
+      pseudo: null,
       isHost: false,
     };
 
     room.players.push(player);
     socket.join(room.code);
 
-    const joinMessage = {
-      sender: 'Système',
-      text: `${pseudo} a rejoint la salle.`,
-      timestamp: Date.now(),
-    };
-    room.chat.push(joinMessage);
     sendRoomUpdate(room);
-    broadcastChat(room, joinMessage);
-    socket.emit('joined-room', { room: getRoomState(room), pseudo, game: getGameState(room, socket.id) });
+    socket.emit('joined-room', { room: getRoomState(room), playerId: socket.id, game: getGameState(room, socket.id) });
   });
 
   socket.on('start-game', ({ roomCode }) => {
@@ -337,7 +347,7 @@ io.on('connection', (socket) => {
     }
 
     const message = {
-      sender: player.pseudo,
+      sender: room.gameStarted ? player.pseudo : player.name,
       text: text.trim().slice(0, 250),
       timestamp: Date.now(),
     };
