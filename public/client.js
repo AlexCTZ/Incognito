@@ -124,6 +124,12 @@ function appendChat(message) {
 }
 
 let currentRoomChat = [];
+let lastGuessPanelState = { pseudos: [], guessNames: [] };
+
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
 
 function renderChatHistory(chat) {
   chatMessages.innerHTML = '';
@@ -164,21 +170,49 @@ function renderGuessPanel(game) {
   }
 
   guessPanel.classList.remove('hidden');
-  guessForm.innerHTML = game.pseudos
-    .map((pseudo, index) => `
-      <div class="guess-row">
-        <label for="guess-${index}">${pseudo}</label>
-        <select id="guess-${index}" name="${pseudo}" ${game.hasSubmitted ? 'disabled' : ''}>
-          <option value="">Sélectionnez un nom</option>
-          ${game.guessNames.map((name) => `<option value="${name}">${name}</option>`).join('')}
-        </select>
-      </div>
-    `)
-    .join('');
+  const samePseudos = arraysEqual(lastGuessPanelState.pseudos, game.pseudos);
+  const sameGuessNames = arraysEqual(lastGuessPanelState.guessNames, game.guessNames);
+  const shouldRenderForm = !samePseudos || !sameGuessNames || guessForm.children.length === 0;
 
-  const selects = Array.from(guessForm.querySelectorAll('select'));
-  selects.forEach((select) => select.addEventListener('change', updateGuessOptions));
-  updateGuessOptions();
+  const previousSelections = {};
+  Array.from(guessForm.querySelectorAll('select')).forEach((select) => {
+    if (select.name && select.value) {
+      previousSelections[select.name] = select.value;
+    }
+  });
+
+  if (shouldRenderForm) {
+    lastGuessPanelState = {
+      pseudos: [...game.pseudos],
+      guessNames: [...game.guessNames],
+    };
+    guessForm.innerHTML = game.pseudos
+      .map((pseudo, index) => `
+        <div class="guess-row">
+          <label for="guess-${index}">${pseudo}</label>
+          <select id="guess-${index}" name="${pseudo}" ${game.hasSubmitted ? 'disabled' : ''}>
+            <option value="">Sélectionnez un nom</option>
+            ${game.guessNames.map((name) => `<option value="${name}">${name}</option>`).join('')}
+          </select>
+        </div>
+      `)
+      .join('');
+
+    const selects = Array.from(guessForm.querySelectorAll('select'));
+    selects.forEach((select) => {
+      if (previousSelections[select.name]) {
+        select.value = previousSelections[select.name];
+      }
+      select.addEventListener('change', updateGuessOptions);
+    });
+    updateGuessOptions();
+  } else {
+    const selects = Array.from(guessForm.querySelectorAll('select'));
+    selects.forEach((select) => {
+      select.disabled = game.hasSubmitted;
+    });
+    updateGuessOptions();
+  }
 
   submitGuessBtn.disabled = game.hasSubmitted;
   guessStatus.textContent = game.hasSubmitted

@@ -292,14 +292,23 @@ button:hover {
   margin-top: 10px;
 }
 
+#show-history-btn {
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+#guess-panel {
+  margin-top: 16px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.76);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px;
+  padding: 40px 24px 24px;
   z-index: 1000;
 }
 
@@ -327,6 +336,14 @@ button:hover {
   min-height: 260px;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+.modal-content .chat-message {
+  margin-bottom: 18px;
+}
+
+.modal-content .chat-message:last-child {
+  margin-bottom: 0;
 }
 
 #history-modal.hidden {
