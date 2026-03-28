@@ -85,7 +85,7 @@ function createRoom(hostName) {
   return rooms.get(code);
 }
 
-function getGameState(room) {
+function getGameState(room, socketId = null) {
   return {
     started: room.gameStarted,
     questionNumber: room.currentQuestionIndex >= 0 ? room.currentQuestionIndex + 1 : 0,
@@ -93,6 +93,7 @@ function getGameState(room) {
     currentQuestionText: room.currentQuestionText,
     answeredCount: room.answeredIds.size,
     requiredCount: room.players.length,
+    hasAnswered: socketId ? room.answeredIds.has(socketId) : false,
     timeLeft: room.questionStartTime
       ? Math.max(0, Math.ceil((room.questionStartTime + QUESTION_TIMEOUT_MS - Date.now()) / 1000))
       : null,
@@ -124,8 +125,11 @@ function sendRoomUpdate(room) {
   io.to(room.code).emit('room-updated', getRoomState(room));
 }
 
-function sendGameUpdate(room) {
-  io.to(room.code).emit('game-updated', getGameState(room));
+async function sendGameUpdate(room) {
+  const sockets = await io.in(room.code).fetchSockets();
+  sockets.forEach((socket) => {
+    socket.emit('game-updated', getGameState(room, socket.id));
+  });
 }
 
 function endGame(room) {
@@ -294,7 +298,7 @@ io.on('connection', (socket) => {
     room.chat.push(joinMessage);
     sendRoomUpdate(room);
     broadcastChat(room, joinMessage);
-    socket.emit('joined-room', { room: getRoomState(room), pseudo });
+    socket.emit('joined-room', { room: getRoomState(room), pseudo, game: getGameState(room, socket.id) });
   });
 
   socket.on('start-game', ({ roomCode }) => {
@@ -327,6 +331,10 @@ io.on('connection', (socket) => {
 
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
+
+    if (room.gameStarted && room.currentQuestionText && room.answeredIds.has(player.id)) {
+      return socket.emit('error-message', 'Vous avez déjà répondu à cette question.');
+    }
 
     const message = {
       sender: player.pseudo,

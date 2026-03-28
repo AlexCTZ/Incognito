@@ -1,4 +1,4 @@
-# L'Incognito - Lobby
+# L'Incognito
 
 A local web app lobby for the game *L'Incognito*. Players can create or join a room, get anonymous pseudos, and chat in the lobby.
 

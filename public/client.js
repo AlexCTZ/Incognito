@@ -32,7 +32,7 @@ function setStatus(message, isError = false) {
   statusMessage.style.color = isError ? '#f67d7d' : '#c8d0ff';
 }
 
-function showLobby(room, pseudo) {
+function showLobby(room, pseudo, initialGameState = null) {
   currentRoomCode = room.code;
   localPseudo = pseudo;
   roomCodeLabel.textContent = room.code;
@@ -41,7 +41,7 @@ function showLobby(room, pseudo) {
   playerRoleLabel.textContent = me?.isHost ? 'Hôte' : 'Joueur';
   renderPlayers(room.players);
   updateHostControls(room);
-  updateGameUI(room.game);
+  updateGameUI(initialGameState || room.game);
   renderChatHistory(room.chat);
   joinPanel.classList.add('hidden');
   lobbyPanel.classList.remove('hidden');
@@ -111,7 +111,9 @@ function updateGameUI(game) {
   questionTimerLabel.textContent = game.timeLeft != null ? `${game.timeLeft}s` : '--';
   questionText.textContent = game.currentQuestionText || 'En attente de la question...';
   answeredCountLabel.textContent = `${game.answeredCount}/${game.requiredCount} réponses reçues`;
-  gameStatusLabel.textContent = 'Répondez à la question dans le chat ci-dessous.';
+  gameStatusLabel.textContent = game.hasAnswered
+    ? 'Vous avez déjà répondu à cette question.'
+    : 'Répondez à la question dans le chat ci-dessous.';
 }
 
 createRoomBtn.addEventListener('click', () => {
@@ -149,8 +151,8 @@ socket.on('error-message', (message) => {
   setStatus(message, true);
 });
 
-socket.on('joined-room', ({ room, pseudo }) => {
-  showLobby(room, pseudo);
+socket.on('joined-room', ({ room, pseudo, game }) => {
+  showLobby(room, pseudo, game);
 });
 
 socket.on('room-updated', (room) => {
